@@ -1,0 +1,147 @@
+ 
+ options {
+	STATIC = false ;
+}
+
+ PARSER_BEGIN(Gramatica)
+package grammar;
+import grammar.ts.Arbol;
+import grammar.ts.Operador;
+import grammar.ts.GrammarException;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import pattern_abstract.Instruccion;
+import pattern_abstract.expresion.Primitivo;
+import pattern_abstract.expresion.Operacion;
+import pattern_abstract.nodoast.Nodo;
+import pattern_abstract.nodoast.WriteFile;
+/** New line translator. */
+public class Gramatica {
+
+
+  /** Main entry point. */
+//public static List<GrammarException> lstE = new ArrayList<>();
+  public static void main(String args[]) throws ParseException, TokenMgrError {
+    Gramatica parser = new Gramatica(System.in);
+    Instruccion inst = parser.inicio();
+    
+    Arbol ast = new Arbol(inst, null, lstE);
+    ast.getInstruccion().interpretar();
+    
+    Nodo init = new Nodo("Ast_Root");
+    Nodo instNodo = new Nodo("Instruccion");
+    instNodo.addHijoNodo(ast.getInstruccion().getNodo());
+    
+    init.addHijoNodo(instNodo);
+    String grafo = ast.getDot(init);
+
+    WriteFile wf = new WriteFile();
+    wf.writeFile("grafo.dot", grafo);
+    wf.dibujar("grafo.dot", "grafo.png");
+
+    System.out.println("==Fin==");
+  }
+
+}
+
+
+PARSER_END(Gramatica)
+
+SKIP : { " " | "\t" | "\r" | "\n" }
+TOKEN : {
+	 < NUM 			: (["0"-"9"])+ >
+	|< POR 			: "*" >
+	|< MAS 			: "+" >
+	|< PAR_A		: ("(") >
+	|< PAR_C		: (")") >
+}
+
+Instruccion inicio():{Instruccion instruccion;}{
+	{System.out.println("inciiando");} instruccion = E() 
+        {return instruccion;}
+}
+
+
+Instruccion E():
+{Instruccion resultT,resultEp;}
+{
+	resultT=T() resultEp=Ep() 
+        {
+            if(resultEp == null){
+                return resultEp;
+             }else{
+                    return new Operacion(Operador.MAS,resultT,resultEp,1,1);
+                }
+        }
+}
+
+Instruccion Ep():
+{Instruccion resultT;Instruccion resultEp;}
+{
+	 <MAS> resultT=T() resultEp=Ep() 
+            {
+                if(resultEp != null){
+                        return new Operacion(Operador.MAS,resultT,resultEp,1,1);
+                }
+                return resultT;
+            }
+	| {return null;}
+
+}
+
+
+Instruccion T():
+{Instruccion resultF;Instruccion resultTp;}
+{
+	resultF=F() resultTp=Tp() 
+            {
+                if(resultF == null){
+                  lstE.add(new GrammarException("Sintactico", "Se esperaba un Valor Primitivo"  , 1,1));
+                  return null;
+                }
+                if(resultTp != null ){
+                   
+                    return new Operacion(Operador.POR,resultF,resultTp,1,1);    
+                   }
+                else{
+                    return resultF;
+                }
+                
+            }
+}
+
+
+Instruccion Tp():
+{Instruccion resultF;
+Instruccion resultTp;}
+{
+	<POR> resultF=F() resultTp=Tp()
+            {
+              if(resultF == null){
+                  lstE.add(new GrammarException("Sintactico", "Se esperaba un Valor Primitivo"  , 1,1));
+                  return null;
+                }
+                if(resultTp != null ){
+                    return new Operacion(Operador.POR,resultF,resultTp,1,1);    
+                   }
+                else{
+                    return resultF;
+                }
+                
+            }
+	| {return null;}
+}
+
+
+Instruccion F():
+{Token token; Instruccion valE;}
+{
+	
+	token=<NUM> 
+        {   
+            return new Primitivo(1,1,token.image.toString());
+        }
+
+	| <PAR_A> valE=E() <PAR_C> {System.out.println("F E"+valE); return valE;}
+}
